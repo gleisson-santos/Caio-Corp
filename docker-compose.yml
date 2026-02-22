@@ -33,6 +33,7 @@ services:
 
     volumes:
       - caio_workspace:/app/workspace
+      - /root/Caio-Corp/config.json:/app/config.json ## Suas chaves ficam na VPS, não no Docker Hub
 
     networks:
       - ControllNet ## Nome da rede interna
