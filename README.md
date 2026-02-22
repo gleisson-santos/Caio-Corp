@@ -2,9 +2,11 @@
   <h1>🐱 Agente Caio Corp</h1>
   <p><strong>Plataforma de Agentes de IA Especializados</strong></p>
   <p>
+    <a href="https://github.com/gleisson-santos/Caio-Corp/actions"><img src="https://github.com/gleisson-santos/Caio-Corp/actions/workflows/docker-publish.yml/badge.svg" alt="Build"></a>
+    <a href="https://hub.docker.com/r/gleissonsantos/caio-dashboard"><img src="https://img.shields.io/docker/pulls/gleissonsantos/caio-dashboard?label=Dashboard%20Pulls&logo=docker" alt="Dashboard Pulls"></a>
+    <a href="https://hub.docker.com/r/gleissonsantos/caio-agent"><img src="https://img.shields.io/docker/pulls/gleissonsantos/caio-agent?label=Agent%20Pulls&logo=docker" alt="Agent Pulls"></a>
     <img src="https://img.shields.io/badge/python-≥3.11-blue" alt="Python">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-    <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
     <img src="https://img.shields.io/badge/traefik-integrated-24A1C1?logo=traefikproxy&logoColor=white" alt="Traefik">
   </p>
 </div>
@@ -102,6 +104,12 @@ nanobot gateway
 
 ## 🐳 Deploy na VPS (Portainer + Traefik)
 
+> As imagens Docker são publicadas **automaticamente** no [Docker Hub](https://hub.docker.com/u/gleissonsantos) via GitHub Actions a cada `git push`.
+
+```
+git push → GitHub Actions → Docker Hub → Portainer pull → 🚀 Online
+```
+
 ### Pré-requisitos do servidor
 - VPS com Docker e Docker Swarm
 - Portainer instalado
@@ -110,31 +118,26 @@ nanobot gateway
 
 ### Passo a passo
 
-**1. Clone o repositório na VPS:**
-```bash
-git clone https://github.com/gleisson-santos/Caio-Corp.git
-cd Caio-Corp
-```
-
-**2. Crie seu `config.json`:**
-```bash
-cp config.example.json config.json
-nano config.json  # Preencha suas chaves
-```
-
-**3. No Portainer:**
+**1. No Portainer:**
 - Vá em **Stacks** → **Add stack**
 - Nomeie como `caio-corp`
-- Cole o conteúdo do `docker-compose.yml` ou aponte para o repositório Git
+- Cole o conteúdo do `docker-compose.yml`
 - Adicione as **Environment Variables**:
   - `OPENAI_API_KEY` → sua chave
   - `TELEGRAM_BOT_TOKEN` → seu token do bot
   - `BRAVE_API_KEY` → sua chave (opcional)
 - Clique em **Deploy the stack**
 
-**4. Acesse:**
+**2. Acesse:**
 - Dashboard: `https://agentecaio.controllserv.com.br`
-- O Caio Agent roda em background processando mensagens do Telegram
+- O Caio Agent roda em background processando mensagens
+
+### Imagens Docker
+
+| Imagem | Pull Command |
+|--------|-------------|
+| **Dashboard** | `docker pull gleissonsantos/caio-dashboard:latest` |
+| **Agent** | `docker pull gleissonsantos/caio-agent:latest` |
 
 ### Estrutura da Stack
 
