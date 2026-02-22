@@ -30,3 +30,10 @@ build/
 *.zip
 *.skill
 !workspace/memory/MEMORY.md
+
+# === 🔒 SECURITY: Never push secrets ===
+config.json
+credentials.json
+token.pickle
+*.pickle
+nanobot/extras/api.env
