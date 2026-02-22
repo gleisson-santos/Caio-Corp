@@ -42,5 +42,6 @@ This file stores important information that should persist across sessions.
 - **Lembretes Diretos**: Implementada via rápida de entrega para notificações simples, reduzindo latência e evitando poluição do contexto do agente.
 - **Organização**: Faxina nos logs antigos e remoção de pastas temporárias para manter o projeto limpo.
 - **Versionamento Git**: Iniciado repositório Git em `gleisson-santos/Caio-Corp`. Todas as melhorias futuras serão registradas via commit e resumidas no MEMORY.md.
+- **Infraestrutura Docker**: Criados `Dockerfile` e `docker-compose.yml` para deploy na VPS com suporte a Traefik e domínio personalizado `agentecaio.controllserv.com.br`.
 
 *Este arquivo é atualizado pelo nanobot para manter um registro persistente da evolução do projeto.*

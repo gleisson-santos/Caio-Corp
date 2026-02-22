@@ -25,5 +25,5 @@ services:
       - "traefik.http.services.caio-corp.loadbalancer.server.port=18790"
 
 networks:
-  proxy:
+  ControllNet:
     external: true
