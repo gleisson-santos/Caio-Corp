@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  caio-corp:
+    build: .
+    container_name: caio-corp
+    restart: always
+    environment:
+      # Puxar as chaves do seu arquivo .env ou config.json
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
+    volumes:
+      - ./nanobot:/app/nanobot
+      - ./bridge:/app/bridge
+      - ./workspace:/app/workspace
+      - ./config.json:/root/.nanobot/config.json
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.caio-corp.rule=Host(`agentecaio.controllserv.com.br`)"
+      - "traefik.http.routers.caio-corp.entrypoints=websecure"
+      - "traefik.http.routers.caio-corp.tls.certresolver=letsencrypt" # Verifique se o nome do seu resolver é este
+      - "traefik.http.services.caio-corp.loadbalancer.server.port=18790"
+
+networks:
+  proxy:
+    external: true
