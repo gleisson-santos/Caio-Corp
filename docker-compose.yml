@@ -30,10 +30,11 @@ services:
 
   caio-agent:
     image: gleissonsantos/caio-agent:latest ## Core do Agente IA
+    command: [ "gateway" ] ## Inicia o bot Telegram (override do CMD status)
 
     volumes:
       - caio_workspace:/app/workspace
-      - /root/Caio-Corp/config.json:/app/config.json ## Suas chaves ficam na VPS, não no Docker Hub
+      - /root/Caio-Corp/config.json:/root/.nanobot/config.json ## Caminho correto que o nanobot lê
 
     networks:
       - ControllNet ## Nome da rede interna
