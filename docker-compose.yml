@@ -2,11 +2,13 @@ version: "3.7"
 
 services:
 
-  ## ======================== DASHBOARD ======================== ##
+  ## --------------------------- CAIO CORP --------------------------- ##
+
   caio-dashboard:
-    build: ./dashboard
+    image: gleissonsantos/caio-dashboard:latest ## Dashboard React + Nginx
+
     networks:
-      - ControllNet
+      - ControllNet ## Nome da rede interna
 
     deploy:
       mode: replicated
@@ -15,26 +17,30 @@ services:
         constraints:
           - node.role == manager
       labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.caio-dashboard.rule=Host(`agentecaio.controllserv.com.br`)"
-        - "traefik.http.routers.caio-dashboard.entrypoints=websecure"
-        - "traefik.http.routers.caio-dashboard.priority=1"
-        - "traefik.http.routers.caio-dashboard.tls.certresolver=letsencryptresolver"
-        - "traefik.http.routers.caio-dashboard.service=caio-dashboard"
-        - "traefik.http.services.caio-dashboard.loadbalancer.server.port=80"
-        - "traefik.http.services.caio-dashboard.loadbalancer.passHostHeader=true"
+        - traefik.enable=true
+        - traefik.http.routers.caio-dashboard.rule=Host(`agentecaio.controllserv.com.br`)
+        - traefik.http.routers.caio-dashboard.entrypoints=websecure
+        - traefik.http.routers.caio-dashboard.priority=1
+        - traefik.http.routers.caio-dashboard.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.caio-dashboard.service=caio-dashboard
+        - traefik.http.services.caio-dashboard.loadbalancer.server.port=80
+        - traefik.http.services.caio-dashboard.loadbalancer.passHostHeader=true
 
-  ## ======================== AGENT CORE ======================== ##
+  ## --------------------------- CAIO CORP --------------------------- ##
+
   caio-agent:
-    build: .
+    image: gleissonsantos/caio-agent:latest ## Core do Agente IA
+
+    volumes:
+      - caio_workspace:/app/workspace
+
+    networks:
+      - ControllNet ## Nome da rede interna
+
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - BRAVE_API_KEY=${BRAVE_API_KEY}
-    volumes:
-      - caio_workspace:/app/workspace
-    networks:
-      - ControllNet
 
     deploy:
       mode: replicated
@@ -43,14 +49,15 @@ services:
         constraints:
           - node.role == manager
 
-## ======================== VOLUMES ======================== ##
+## --------------------------- CAIO CORP --------------------------- ##
+
 volumes:
   caio_workspace:
     external: true
     name: caio_workspace
 
-## ======================== NETWORKS ======================== ##
 networks:
   ControllNet:
+    ## Nome da rede interna
     external: true
-    name: ControllNet
+    name: ControllNet ## Nome da rede interna
