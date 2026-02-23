@@ -17,6 +17,7 @@ from nanobot.agent.memory import MemoryStore
 from nanobot.agent.subagent import SubagentManager
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.email_read import EmailReadTool
+from nanobot.agent.tools.email_delete import EmailDeleteTool
 from nanobot.agent.tools.email_send import EmailSendTool
 from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
 from nanobot.agent.tools.google_calendar import GoogleCalendarTool
@@ -134,6 +135,16 @@ class AgentLoop:
                 use_ssl=ec.get("imap_use_ssl", True),
             ))
             logger.info("Email read tool registered for {}", ec["imap_username"])
+
+            # Register email delete tool (same IMAP credentials)
+            self.tools.register(EmailDeleteTool(
+                imap_host=ec["imap_host"],
+                imap_port=ec.get("imap_port", 993),
+                username=ec["imap_username"],
+                password=ec["imap_password"],
+                use_ssl=ec.get("imap_use_ssl", True),
+            ))
+            logger.info("Email delete tool registered for {}", ec["imap_username"])
 
         if ec.get("smtp_host") and ec.get("smtp_username") and ec.get("smtp_password"):
             self.tools.register(EmailSendTool(
