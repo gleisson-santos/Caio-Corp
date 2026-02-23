@@ -28,37 +28,39 @@ def _decode_header(value: str | None) -> str:
 
 
 class EmailDeleteTool(Tool):
-    """Delete emails from the user's IMAP inbox by search criteria."""
+    """Delete emails from the user's IMAP inbox."""
 
     name = "email_delete"
     description = (
-        "Delete emails from the inbox by search criteria. "
-        "Use IMAP search queries like 'FROM sender@example.com', "
-        "'SUBJECT keyword', or 'ALL' for all. "
-        "Emails are moved to Trash (Gmail) or flagged as Deleted. "
-        "ONLY use this tool when the user EXPLICITLY asks to delete emails."
+        "Delete emails from the inbox. You can delete by:\n"
+        "- count: delete the last N emails (e.g. count=3 deletes the 3 most recent)\n"
+        "- sender: delete emails from a specific sender address\n"
+        "Emails are moved to Trash. ONLY use when the user EXPLICITLY asks to delete.\n"
+        "NEVER use email_send to try to delete emails — always use email_delete."
     )
     parameters = {
         "type": "object",
         "properties": {
-            "query": {
-                "type": "string",
+            "count": {
+                "type": "integer",
                 "description": (
-                    "IMAP search query to find emails to delete. "
-                    "Examples: 'FROM sender@example.com', 'SUBJECT test email', "
-                    "'UNSEEN', 'ALL'. Use specific queries to avoid deleting wrong emails."
+                    "Number of most recent emails to delete. Default: 1. Max: 10. "
+                    "Use this when the user says 'delete the last 3 emails'."
                 ),
             },
-            "max_delete": {
-                "type": "integer",
-                "description": "Maximum number of emails to delete (safety limit). Default: 5.",
+            "sender": {
+                "type": "string",
+                "description": (
+                    "Delete only emails from this sender address. "
+                    "Example: 'expert@example.com'. If empty, deletes by count from all."
+                ),
             },
             "mailbox": {
                 "type": "string",
                 "description": "Mailbox to delete from. Default: INBOX.",
             },
         },
-        "required": ["query"],
+        "required": [],
     }
 
     def __init__(
@@ -77,8 +79,8 @@ class EmailDeleteTool(Tool):
 
     async def execute(
         self,
-        query: str = "ALL",
-        max_delete: int = 5,
+        count: int = 1,
+        sender: str = "",
         mailbox: str = "INBOX",
         **kwargs: Any,
     ) -> str:
@@ -86,16 +88,19 @@ class EmailDeleteTool(Tool):
         if not self.imap_host or not self.username:
             return "Error: IMAP is not configured."
 
+        # Safety: max 10 at a time
+        count = min(max(1, count), 10)
+
         try:
             result = await asyncio.to_thread(
-                self._delete_emails, query, max_delete, mailbox
+                self._delete_emails, count, sender, mailbox
             )
             return result
         except Exception as e:
             logger.error("Email delete error: {}", e)
-            return f"Error deleting emails: {e}"
+            return f"Erro ao deletar emails: {e}"
 
-    def _delete_emails(self, query: str, max_delete: int, mailbox: str) -> str:
+    def _delete_emails(self, count: int, sender: str, mailbox: str) -> str:
         """Synchronous IMAP delete (runs in executor)."""
         try:
             if self.use_ssl:
@@ -106,59 +111,62 @@ class EmailDeleteTool(Tool):
             conn.login(self.username, self.password)
             conn.select(mailbox)
 
-            status, data = conn.search(None, query)
+            # Search for emails
+            if sender:
+                # Search by sender
+                status, data = conn.search(None, "FROM", f'"{sender}"')
+            else:
+                # Get all emails
+                status, data = conn.search(None, "ALL")
+
             if status != "OK" or not data[0]:
                 conn.logout()
-                return f"Nenhum email encontrado com a busca: {query}"
+                return "Nenhum email encontrado para deletar."
 
             uids = data[0].split()
-            # Limit to max_delete (most recent first)
-            uids_to_delete = uids[-max_delete:] if len(uids) > max_delete else uids
+            # Take the most recent N
+            uids_to_delete = uids[-count:]
 
             deleted_info = []
             for uid in uids_to_delete:
                 # Fetch subject and sender for confirmation
-                status, msg_data = conn.fetch(uid, "(RFC822.HEADER)")
-                subject = ""
-                sender = ""
-                if status == "OK" and msg_data[0]:
-                    raw = msg_data[0][1]
-                    msg = email.message_from_bytes(raw)
-                    subject = _decode_header(msg.get("Subject", ""))
-                    sender = _decode_header(msg.get("From", ""))
+                try:
+                    status, msg_data = conn.fetch(uid, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])")
+                    subject_str = ""
+                    sender_str = ""
+                    if status == "OK" and msg_data[0] and isinstance(msg_data[0], tuple):
+                        raw = msg_data[0][1]
+                        msg = email.message_from_bytes(raw)
+                        subject_str = _decode_header(msg.get("Subject", ""))
+                        sender_str = _decode_header(msg.get("From", ""))
+                    deleted_info.append(f"• {sender_str} — {subject_str}")
+                except Exception:
+                    deleted_info.append(f"• (email ID: {uid.decode()})")
 
-                deleted_info.append(f"• De: {sender} | Assunto: {subject}")
-
-            # Try Gmail-style delete (move to Trash)
-            try:
-                for uid in uids_to_delete:
-                    conn.store(uid, "+FLAGS", "\\Deleted")
-                    # Gmail: copy to [Gmail]/Trash then delete from INBOX
+            # Delete: flag as deleted + move to Gmail Trash
+            for uid in uids_to_delete:
+                try:
+                    # Gmail: move to Trash folder
+                    conn.copy(uid, "[Gmail]/Lixeira")
+                except Exception:
                     try:
-                        conn.copy(uid, "[Gmail]/Lixeira")
+                        conn.copy(uid, "[Gmail]/Trash")
                     except Exception:
-                        try:
-                            conn.copy(uid, "[Gmail]/Trash")
-                        except Exception:
-                            pass  # Non-Gmail: just flag as deleted
-                conn.expunge()
-            except Exception as e:
-                logger.warning("Delete fallback: {}", e)
-                # Fallback: just flag as deleted and expunge
-                for uid in uids_to_delete:
-                    conn.store(uid, "+FLAGS", "\\Deleted")
-                conn.expunge()
+                        pass  # Non-Gmail: just flag
 
+                conn.store(uid, "+FLAGS", "\\Deleted")
+
+            conn.expunge()
             conn.logout()
 
-            count = len(uids_to_delete)
+            n = len(uids_to_delete)
             details = "\n".join(deleted_info)
             return (
-                f"✅ {count} email(s) deletado(s) com sucesso!\n\n"
-                f"Emails removidos:\n{details}"
+                f"✅ {n} email(s) deletado(s) com sucesso!\n\n"
+                f"Removidos:\n{details}"
             )
 
         except imaplib.IMAP4.error as e:
-            return f"Erro IMAP ao deletar: {e}"
+            return f"Erro IMAP: {e}"
         except Exception as e:
-            return f"Erro ao deletar emails: {e}"
+            return f"Erro ao deletar: {e}"

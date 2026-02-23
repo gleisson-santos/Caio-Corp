@@ -98,12 +98,12 @@ class EmailChannel(BaseChannel):
                         self._last_message_id_by_chat[sender] = message_id
 
                     # Cache email for future user interaction (reply/delete)
-                    body = item["content"] or ""
+                    body_raw = item.get("body_text", "") or ""
                     self._recent_emails.append({
                         "sender": sender,
                         "subject": subject,
                         "message_id": message_id,
-                        "body": body[:2000],  # Keep first 2000 chars
+                        "body": body_raw[:2000],  # Keep first 2000 chars
                     })
                     # Keep only last 20 emails in cache
                     if len(self._recent_emails) > 20:
@@ -115,16 +115,21 @@ class EmailChannel(BaseChannel):
 
                     # Cross-channel notification (e.g. alert on Telegram)
                     if self._notify_channel and self._notify_chat_id:
-                        # Build a brief body summary (max 2 lines, ~200 chars)
-                        body_clean = " ".join(body.split())[:200].strip()
-                        if len(body_clean) > 180:
-                            body_clean = body_clean[:180].rsplit(" ", 1)[0] + "..."
+                        # Clean body: remove excess whitespace, limit to ~150 chars
+                        body_clean = " ".join(body_raw.split()).strip()
+                        if len(body_clean) > 150:
+                            body_clean = body_clean[:150].rsplit(" ", 1)[0] + "…"
+                        if not body_clean or body_clean == "(empty email body)":
+                            body_clean = "(sem conteúdo)"
 
                         summary = (
-                            f"📧 **Novo email!**\n"
-                            f"**De:** {sender}\n"
-                            f"**Assunto:** {subject}\n"
-                            f"📝 {body_clean}"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"📧  *Novo Email Recebido*\n"
+                            f"━━━━━━━━━━━━━━━━━━━━\n"
+                            f"👤 *De:*  {sender}\n"
+                            f"📌 *Assunto:*  {subject}\n\n"
+                            f"💬 _{body_clean}_\n"
+                            f"━━━━━━━━━━━━━━━━━━━━"
                         )
                         logger.info("Sending email cross-notify to {}:{}", self._notify_channel, self._notify_chat_id)
                         try:
@@ -339,6 +344,7 @@ class EmailChannel(BaseChannel):
                         "subject": subject,
                         "message_id": message_id,
                         "content": content,
+                        "body_text": body,  # Raw body without metadata headers
                         "metadata": metadata,
                     }
                 )
