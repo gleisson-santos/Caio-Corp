@@ -62,6 +62,7 @@ class EmailChannel(BaseChannel):
         self._last_message_id_by_chat: dict[str, str] = {}
         self._processed_uids: set[str] = set()  # Capped to prevent unbounded growth
         self._MAX_PROCESSED_UIDS = 100000
+        self._recent_emails: list[dict] = []  # Cache for user interaction (reply/delete)
 
     async def start(self) -> None:
         """Start polling IMAP for inbound emails."""
@@ -77,41 +78,62 @@ class EmailChannel(BaseChannel):
 
         self._running = True
         logger.info("Starting Email channel (IMAP polling mode)...")
+        logger.info("Email cross-notify: channel={}, chat_id={}", self._notify_channel, self._notify_chat_id)
 
         poll_seconds = max(5, int(self.config.poll_interval_seconds))
         while self._running:
             try:
                 inbound_items = await asyncio.to_thread(self._fetch_new_messages)
+                if inbound_items:
+                    logger.info("Email: {} new message(s) detected", len(inbound_items))
                 for item in inbound_items:
                     sender = item["sender"]
                     subject = item.get("subject", "")
                     message_id = item.get("message_id", "")
+                    logger.info("Email from '{}': '{}'", sender, subject[:60])
 
                     if subject:
                         self._last_subject_by_chat[sender] = subject
                     if message_id:
                         self._last_message_id_by_chat[sender] = message_id
 
-                    await self._handle_message(
-                        sender_id=sender,
-                        chat_id=sender,
-                        content=item["content"],
-                        metadata=item.get("metadata", {}),
-                    )
+                    # Cache email for future user interaction (reply/delete)
+                    body = item["content"] or ""
+                    self._recent_emails.append({
+                        "sender": sender,
+                        "subject": subject,
+                        "message_id": message_id,
+                        "body": body[:2000],  # Keep first 2000 chars
+                    })
+                    # Keep only last 20 emails in cache
+                    if len(self._recent_emails) > 20:
+                        self._recent_emails = self._recent_emails[-20:]
+
+                    # NOTE: We do NOT call _handle_message() here.
+                    # Emails should not be auto-processed/replied by the agent.
+                    # The user must explicitly ask to reply or take action.
 
                     # Cross-channel notification (e.g. alert on Telegram)
                     if self._notify_channel and self._notify_chat_id:
+                        # Build a brief body summary (max 2 lines, ~200 chars)
+                        body_clean = " ".join(body.split())[:200].strip()
+                        if len(body_clean) > 180:
+                            body_clean = body_clean[:180].rsplit(" ", 1)[0] + "..."
+
                         summary = (
                             f"📧 **Novo email!**\n"
-                            f"De: {sender}\n"
-                            f"Assunto: {subject}"
+                            f"**De:** {sender}\n"
+                            f"**Assunto:** {subject}\n"
+                            f"📝 {body_clean}"
                         )
+                        logger.info("Sending email cross-notify to {}:{}", self._notify_channel, self._notify_chat_id)
                         try:
                             await self.bus.publish_outbound(OutboundMessage(
                                 channel=self._notify_channel,
                                 chat_id=self._notify_chat_id,
                                 content=summary,
                             ))
+                            logger.info("Email cross-notify published OK")
                         except Exception as notify_err:
                             logger.warning("Email cross-notify failed: {}", notify_err)
             except Exception as e:
