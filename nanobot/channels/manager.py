@@ -107,8 +107,19 @@ class ChannelManager:
         if self.config.channels.email.enabled:
             try:
                 from nanobot.channels.email import EmailChannel
+
+                # Resolve Telegram notify target for cross-channel email alerts
+                tg = self.config.channels.telegram
+                notify_channel = ""
+                notify_chat_id = ""
+                if tg.enabled:
+                    notify_channel = "telegram"
+                    notify_chat_id = tg.notify_chat_id or (tg.allow_from[0] if tg.allow_from else "")
+
                 self.channels["email"] = EmailChannel(
-                    self.config.channels.email, self.bus
+                    self.config.channels.email, self.bus,
+                    notify_channel=notify_channel,
+                    notify_chat_id=notify_chat_id,
                 )
                 logger.info("Email channel enabled")
             except ImportError as e:

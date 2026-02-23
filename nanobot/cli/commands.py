@@ -420,7 +420,14 @@ def gateway(
     
     # Create heartbeat service
     async def on_heartbeat(prompt: str) -> str:
-        """Execute heartbeat through the agent."""
+        """Execute heartbeat through the agent, routing to Telegram if available."""
+        tg = config.channels.telegram
+        if tg.enabled:
+            chat_id = tg.notify_chat_id or (tg.allow_from[0] if tg.allow_from else "direct")
+            return await agent.process_direct(
+                prompt, session_key="heartbeat",
+                channel="telegram", chat_id=chat_id,
+            )
         return await agent.process_direct(prompt, session_key="heartbeat")
     
     heartbeat = HeartbeatService(

@@ -50,9 +50,14 @@ class EmailChannel(BaseChannel):
         "Dec",
     )
 
-    def __init__(self, config: EmailConfig, bus: MessageBus):
+    def __init__(
+        self, config: EmailConfig, bus: MessageBus,
+        notify_channel: str = "", notify_chat_id: str = "",
+    ):
         super().__init__(config, bus)
         self.config: EmailConfig = config
+        self._notify_channel = notify_channel
+        self._notify_chat_id = notify_chat_id
         self._last_subject_by_chat: dict[str, str] = {}
         self._last_message_id_by_chat: dict[str, str] = {}
         self._processed_uids: set[str] = set()  # Capped to prevent unbounded growth
@@ -93,6 +98,22 @@ class EmailChannel(BaseChannel):
                         content=item["content"],
                         metadata=item.get("metadata", {}),
                     )
+
+                    # Cross-channel notification (e.g. alert on Telegram)
+                    if self._notify_channel and self._notify_chat_id:
+                        summary = (
+                            f"📧 **Novo email!**\n"
+                            f"De: {sender}\n"
+                            f"Assunto: {subject}"
+                        )
+                        try:
+                            await self.bus.publish_outbound(OutboundMessage(
+                                channel=self._notify_channel,
+                                chat_id=self._notify_chat_id,
+                                content=summary,
+                            ))
+                        except Exception as notify_err:
+                            logger.warning("Email cross-notify failed: {}", notify_err)
             except Exception as e:
                 logger.error("Email polling error: {}", e)
 
