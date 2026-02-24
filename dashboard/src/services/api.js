@@ -9,6 +9,22 @@
 
 // ─── MOCK DATA ─────────────────────────────────────────────────────
 
+const defaultSettings = {
+    model: 'gemini/gemini-2.0-flash',
+    maxTokens: 8192,
+    temperature: 0.7,
+    maxToolIterations: 20,
+    memoryWindow: 50,
+    openrouterKey: 'sk-or-v1-****...****f75e',
+    geminiKey: 'AIzaSy****...****7wM',
+    braveKey: 'BSA****...****dVk',
+    telegramEnabled: true,
+    emailEnabled: true,
+    whatsappEnabled: false,
+    telegramToken: '8132****...****QpmQ',
+    botName: 'CaioAgent',
+}
+
 const AGENTS = [
     {
         id: 'caio-ceo',
@@ -325,8 +341,21 @@ let _workflows = [...WORKFLOWS]
 let _activities = [...ACTIVITIES]
 let _nextTaskId = 7
 let _nextWfId = 4
+let _settings = { ...defaultSettings }
 
 export const api = {
+    // ── Settings ────────────────────────────────────────
+    async getSettings() {
+        await delay()
+        return { ..._settings }
+    },
+
+    async updateSettings(data) {
+        await delay(500)
+        _settings = { ..._settings, ...data }
+        return { ..._settings }
+    },
+
     // ── Agents ───────────────────────────────────────────
     async getAgents() {
         await delay()

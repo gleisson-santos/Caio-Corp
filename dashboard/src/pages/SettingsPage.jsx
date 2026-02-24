@@ -1,30 +1,29 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { api } from '../services/api'
 import PageHeader from '../components/PageHeader'
 
-const defaultSettings = {
-  model: 'gemini/gemini-2.0-flash',
-  maxTokens: 8192,
-  temperature: 0.7,
-  maxToolIterations: 20,
-  memoryWindow: 50,
-  openrouterKey: 'sk-or-v1-****...****f75e',
-  geminiKey: 'AIzaSy****...****7wM',
-  braveKey: 'BSA****...****dVk',
-  telegramEnabled: true,
-  emailEnabled: true,
-  whatsappEnabled: false,
-  telegramToken: '8132****...****QpmQ',
-  botName: 'CaioAgent',
-}
-
 export default function SettingsPage() {
-  const [settings, setSettings] = useState(defaultSettings)
+  const [settings, setSettings] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
   const [activeTab, setActiveTab] = useState('model')
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  useEffect(() => {
+    api.getSettings().then(data => {
+      setSettings(data)
+      setLoading(false)
+    })
+  }, [])
+
+  const handleSave = async () => {
+    setLoading(true)
+    try {
+      await api.updateSettings(settings)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const update = (key, value) => {
@@ -39,14 +38,23 @@ export default function SettingsPage() {
     { id: 'system', label: '💻 Sistema', icon: '💻' },
   ]
 
+  if (loading && !settings) {
+    return (
+      <>
+        <PageHeader title="Configurações" description="Carregando..." />
+        <div className="loading-state fade-in-up">⏳ Carregando configurações...</div>
+      </>
+    )
+  }
+
   return (
     <>
       <PageHeader
         title="Configurações"
         description="Configure o modelo de IA, API keys, canais de comunicação e preferências do sistema."
         action={
-          <button className={`btn-save ${saved ? 'saved' : ''}`} onClick={handleSave}>
-            {saved ? '✓ Salvo!' : '💾 Salvar Alterações'}
+          <button className={`btn-save ${saved ? 'saved' : ''}`} onClick={handleSave} disabled={loading}>
+            {saved ? '✓ Salvo!' : loading ? '⏳ Salvando...' : '💾 Salvar Alterações'}
           </button>
         }
       />
@@ -243,7 +251,7 @@ export default function SettingsPage() {
                   <div className="system-card-icon">⚡</div>
                   <div className="system-card-title">Vite</div>
                   <div className="system-card-version">7.3.1</div>
-                  <div className="system-card-detail">Dashboard bundler</div>
+                  <div className="system-card-version-label">Dashboard bundler</div>
                 </div>
               </div>
 
@@ -262,3 +270,4 @@ export default function SettingsPage() {
     </>
   )
 }
+
