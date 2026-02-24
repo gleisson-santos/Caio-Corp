@@ -1,39 +1,6 @@
+import { useState, useEffect } from 'react'
+import { api } from '../services/api'
 import PageHeader from '../components/PageHeader'
-
-const services = [
-  { name: 'Caio Agent', icon: '🐱', status: 'online', uptime: '99.8%', lastCheck: '1 min', response: '145ms' },
-  { name: 'Telegram Bot', icon: '📱', status: 'online', uptime: '99.9%', lastCheck: '30s', response: '89ms' },
-  { name: 'Email IMAP', icon: '📧', status: 'online', uptime: '98.5%', lastCheck: '2 min', response: '340ms' },
-  { name: 'Dashboard', icon: '📊', status: 'online', uptime: '100%', lastCheck: '5s', response: '12ms' },
-  { name: 'Google Calendar', icon: '📅', status: 'online', uptime: '99.7%', lastCheck: '5 min', response: '210ms' },
-  { name: 'OpenRouter API', icon: '🤖', status: 'busy', uptime: '95.2%', lastCheck: '1 min', response: '1.2s' },
-]
-
-const tokenHistory = [42, 38, 55, 48, 67, 53, 71, 62, 85, 73, 91, 82, 96, 88, 75, 68, 92, 87, 79, 95, 103, 98, 112, 142]
-
-const logs = [
-  { time: '22:13:02', level: 'INFO', message: 'Telegram bot @CaioAgentbot connected' },
-  { time: '22:12:58', level: 'INFO', message: 'Agent loop started' },
-  { time: '22:12:55', level: 'INFO', message: 'Starting telegram channel...' },
-  { time: '22:12:55', level: 'INFO', message: 'Starting email channel...' },
-  { time: '22:12:50', level: 'INFO', message: 'Heartbeat started (every 1800s)' },
-  { time: '22:12:48', level: 'INFO', message: 'Email send tool registered' },
-  { time: '22:12:45', level: 'INFO', message: 'Google Calendar tool registered' },
-  { time: '22:12:40', level: 'DEBUG', message: 'Loading config from ~/.nanobot/config.json' },
-  { time: '22:12:38', level: 'INFO', message: 'Gateway starting...' },
-  { time: '22:10:15', level: 'WARNING', message: 'Model gemini/gemini-2.0-flash-lite failed, trying fallback...' },
-  { time: '22:09:50', level: 'INFO', message: 'Processing message from telegram:205798346' },
-  { time: '22:05:30', level: 'INFO', message: 'Memory consolidation: 2 messages archived' },
-]
-
-const systemInfo = [
-  { label: 'OS', value: 'Ubuntu 22.04 LTS' },
-  { label: 'Docker', value: '24.0.7' },
-  { label: 'Python', value: '3.14.0' },
-  { label: 'Node.js', value: '22.15.0' },
-  { label: 'Nanobot', value: 'v3.0.0' },
-  { label: 'Uptime', value: '14d 7h 32m' },
-]
 
 const levelColors = {
   INFO: '#00d4aa',
@@ -43,7 +10,63 @@ const levelColors = {
 }
 
 export default function MonitorPage() {
-  const maxToken = Math.max(...tokenHistory)
+  const [services, setServices] = useState([])
+  const [alerts, setAlerts] = useState([])
+  const [tokenHistory, setTokenHistory] = useState([])
+  const [systemInfo, setSystemInfo] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      const [svc, alt, tokens, info] = await Promise.all([
+        api.getServices(),
+        api.getAlerts(),
+        api.getTokenHistory(),
+        api.getSystemInfo(),
+      ])
+      setServices(svc)
+      setAlerts(alt)
+      setTokenHistory(tokens)
+      setSystemInfo(info)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  // Static logs (would be real-time via WebSocket in production)
+  const logs = [
+    { time: '22:13:02', level: 'INFO', message: 'Telegram bot @CaioAgentbot connected' },
+    { time: '22:12:58', level: 'INFO', message: 'Agent loop started' },
+    { time: '22:12:55', level: 'INFO', message: 'Starting telegram channel...' },
+    { time: '22:12:55', level: 'INFO', message: 'Starting email channel...' },
+    { time: '22:12:50', level: 'INFO', message: 'Heartbeat started (every 1800s)' },
+    { time: '22:12:48', level: 'INFO', message: 'Email send tool registered' },
+    { time: '22:12:48', level: 'INFO', message: 'Email delete tool registered' },
+    { time: '22:12:45', level: 'INFO', message: 'Google Calendar tool registered' },
+    { time: '22:12:40', level: 'DEBUG', message: 'Loading config from ~/.nanobot/config.json' },
+    { time: '22:12:38', level: 'INFO', message: 'Gateway starting...' },
+    { time: '22:10:15', level: 'WARNING', message: 'Model gemini/gemini-2.0-flash-lite failed, trying fallback...' },
+    { time: '22:09:50', level: 'INFO', message: 'Processing message from telegram:205798346' },
+    { time: '22:05:30', level: 'INFO', message: 'Memory consolidation: 2 messages archived' },
+  ]
+
+  const maxToken = Math.max(...(tokenHistory.length ? tokenHistory : [1]))
+
+  const alertTypeConfig = {
+    warning: { icon: '⚠️', className: 'alert-warning' },
+    error: { icon: '🔴', className: 'alert-error' },
+    info: { icon: 'ℹ️', className: 'alert-info' },
+  }
+
+  if (loading) {
+    return (
+      <>
+        <PageHeader title="Monitoramento" description="Carregando..." />
+        <div className="loading-state fade-in-up">⏳ Carregando dados...</div>
+      </>
+    )
+  }
 
   return (
     <>
@@ -52,17 +75,35 @@ export default function MonitorPage() {
         description="Status dos serviços, consumo de tokens e logs do gateway em tempo real."
       />
 
+      {/* Alerts */}
+      {alerts.filter(a => !a.acknowledged).length > 0 && (
+        <div className="alerts-bar fade-in-up fade-in-up-delay-1">
+          {alerts.filter(a => !a.acknowledged).map(alert => {
+            const cfg = alertTypeConfig[alert.type] || alertTypeConfig.info
+            return (
+              <div key={alert.id} className={`alert-item ${cfg.className}`}>
+                <span className="alert-icon">{cfg.icon}</span>
+                <div className="alert-content">
+                  <strong>{alert.title}</strong>
+                  <span>{alert.message}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Service Status Grid */}
       <div className="section-title fade-in-up fade-in-up-delay-1">Status dos Serviços</div>
       <div className="monitor-grid fade-in-up fade-in-up-delay-1">
         {services.map(svc => (
-          <div key={svc.name} className="monitor-card">
+          <div key={svc.id} className="monitor-card">
             <div className="monitor-card-header">
               <span className="monitor-icon">{svc.icon}</span>
               <span className="monitor-name">{svc.name}</span>
               <span className={`monitor-status ${svc.status}`}>
                 <span className="dot"></span>
-                {svc.status === 'online' ? 'Online' : 'Instável'}
+                {svc.status === 'online' ? 'Online' : svc.status === 'busy' ? 'Instável' : 'Offline'}
               </span>
             </div>
             <div className="monitor-stats">

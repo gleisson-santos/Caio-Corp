@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { AgentProvider } from './context/AgentContext'
+import { TaskProvider } from './context/TaskContext'
 import Sidebar from './components/Sidebar'
 import DashboardPage from './pages/DashboardPage'
 import AgentsPage from './pages/AgentsPage'
+import TasksPage from './pages/TasksPage'
 import DocumentsPage from './pages/DocumentsPage'
 import MonitorPage from './pages/MonitorPage'
 import SettingsPage from './pages/SettingsPage'
@@ -13,11 +16,7 @@ function App() {
 
   const handleNavigate = (page, agentId) => {
     setActivePage(page)
-    if (agentId) {
-      setFocusAgent(agentId)
-    } else {
-      setFocusAgent(null)
-    }
+    setFocusAgent(agentId || null)
   }
 
   const renderPage = () => {
@@ -26,6 +25,8 @@ function App() {
         return <DashboardPage onNavigate={handleNavigate} />
       case 'agents':
         return <AgentsPage focusAgent={focusAgent} />
+      case 'tasks':
+        return <TasksPage />
       case 'documents':
         return <DocumentsPage />
       case 'monitor':
@@ -38,12 +39,16 @@ function App() {
   }
 
   return (
-    <div className="app-layout">
-      <Sidebar activePage={activePage} onNavigate={handleNavigate} />
-      <main className="main-content">
-        {renderPage()}
-      </main>
-    </div>
+    <AgentProvider>
+      <TaskProvider>
+        <div className="app-layout">
+          <Sidebar activePage={activePage} onNavigate={handleNavigate} />
+          <main className="main-content">
+            {renderPage()}
+          </main>
+        </div>
+      </TaskProvider>
+    </AgentProvider>
   )
 }
 
