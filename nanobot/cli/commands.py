@@ -451,6 +451,10 @@ def gateway(
     
     console.print(f"[green]✓[/green] Heartbeat: every 30m")
     
+    # Start the Dashboard API
+    from nanobot.server.api import start_api
+    start_api(agent, bus, config, cron)
+    
     async def run():
         try:
             await cron.start()

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTasks } from '../context/TaskContext'
 import { useAgents } from '../context/AgentContext'
 import PageHeader from '../components/PageHeader'
+import { api } from '../services/api'
 
 const priorityConfig = {
     critical: { label: '🔴 Crítica', className: 'priority-critical' },
@@ -160,6 +161,31 @@ export default function TasksPage() {
 
             {activeTab === 'workflows' && (
                 <div className="workflow-list fade-in-up fade-in-up-delay-2">
+                    {/* Quick Actions for Extras */}
+                    <div className="quick-actions-section">
+                        <h4>⚡ Ações Rápidas (nanobot/extras)</h4>
+                        <div className="quick-actions-grid">
+                            {[
+                                { id: 'pdf', label: 'Gerar PDF', icon: '📄' },
+                                { id: 'pptx', label: 'Gerar PPTX', icon: '📊' },
+                                { id: 'xlsx', label: 'Gerar XLSX', icon: '📉' },
+                                { id: 'docx', label: 'Gerar DOCX', icon: '📝' },
+                            ].map(action => (
+                                <button
+                                    key={action.id}
+                                    className="quick-action-btn"
+                                    onClick={async () => {
+                                        const res = await api.generateExtra(action.id)
+                                        if (res) alert(`✓ ${res.message}`)
+                                    }}
+                                >
+                                    <span className="action-icon">{action.icon}</span>
+                                    <span>{action.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {workflows.length === 0 && <div className="empty-state">Nenhum workflow encontrado.</div>}
                     {workflows.map(wf => {
                         const wfStatus = workflowStatusConfig[wf.status] || workflowStatusConfig.inactive
